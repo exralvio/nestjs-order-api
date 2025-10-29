@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { OrderService } from './order.service';
@@ -14,11 +15,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { TenantInterceptor } from '../auth/interceptors/tenant.interceptor';
 import { Role } from '@prisma/client';
 
 @ApiTags('orders')
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(TenantInterceptor)
 @ApiBearerAuth()
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
@@ -34,7 +37,7 @@ export class OrderController {
   @ApiOperation({ summary: 'Get all orders (admin) or user orders' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   findAll(@GetUser() user: any) {
-    // Admins can see all orders, customers see only their own
+    // Admins see all orders in their tenant database, customers see only their own
     const userId = user.role === Role.ADMIN ? undefined : user.id;
     return this.orderService.findAll(userId);
   }
@@ -43,7 +46,7 @@ export class OrderController {
   @ApiOperation({ summary: 'Get an order by ID' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   findOne(@Param('id') id: string, @GetUser() user: any) {
-    // Admins can see any order, customers see only their own
+    // Admins can see any order in their tenant database, customers see only their own
     const userId = user.role === Role.ADMIN ? undefined : user.id;
     return this.orderService.findOne(id, userId);
   }

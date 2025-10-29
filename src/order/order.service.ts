@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../prisma/tenant-context.service';
 import { AddItemDto } from './dto/add-item.dto';
 import { OrderStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -13,6 +14,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 export class OrderService {
   constructor(
     private prisma: PrismaService,
+    private tenantContext: TenantContextService,
   ) {}
 
   async createOrder(userId: string) {

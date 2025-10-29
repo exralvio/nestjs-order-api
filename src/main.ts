@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
   try {
@@ -15,6 +16,9 @@ async function bootstrap() {
         transform: true,
       }),
     );
+
+    // Enable global logging interceptor
+    app.useGlobalInterceptors(new LoggingInterceptor());
 
     // Swagger configuration
     const config = new DocumentBuilder()

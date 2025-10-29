@@ -34,6 +34,7 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       role: user.role,
+      tenantCode: user.tenantCode || undefined,
     };
 
     return {
@@ -43,6 +44,7 @@ export class AuthService {
         email: user.email,
         username: user.username,
         role: user.role,
+        tenantCode: user.tenantCode || undefined,
       },
     };
   }

@@ -7,6 +7,8 @@ import {
   Param,
   Delete,
   UseGuards,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ProductService } from './product.service';
@@ -15,11 +17,14 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { GetUser } from '../auth/decorators/get-user.decorator';
+import { TenantInterceptor } from '../auth/interceptors/tenant.interceptor';
 import { Role } from '@prisma/client';
 
 @ApiTags('products')
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(TenantInterceptor)
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
