@@ -9,7 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -20,6 +20,7 @@ import { TenantInterceptor } from '../auth/interceptors/tenant.interceptor';
 import { ApiResponseWrapper } from '../common/decorators/api-response.decorator';
 import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
 import { Cacheable, InvalidateCache } from '../common/decorators/cache.decorator';
+import { TenantCode } from '../common/decorators/tenant-code.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('products')
@@ -40,38 +41,42 @@ export class ProductController {
 
   @Get()
   @ApiOperation({ summary: 'Get all products' })
+  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Products retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @Cacheable({ ttl: 300 })
-  async findAll() {
-    return this.productService.findAll();
+  async findAll(@TenantCode() tenantCode: string) {
+    return this.productService.findAll(tenantCode);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a product by ID' })
+  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @Cacheable({ ttl: 300 })
-  async findOne(@Param('id') id: string) {
-    return this.productService.findOne(id);
+  async findOne(@Param('id') id: string, @TenantCode() tenantCode: string) {
+    return this.productService.findOne(id, tenantCode);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a product by ID' })
+  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product updated successfully' })
   @Roles(Role.ADMIN)
   @InvalidateCache(['findAll', 'findOne'])
-  async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productService.update(id, updateProductDto);
+  async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto, @TenantCode() tenantCode: string) {
+    return this.productService.update(id, updateProductDto, tenantCode);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a product by ID' })
+  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product deleted successfully' })
   @Roles(Role.ADMIN)
   @InvalidateCache(['findAll', 'findOne'])
-  async remove(@Param('id') id: string) {
-    return this.productService.remove(id);
+  async remove(@Param('id') id: string, @TenantCode() tenantCode: string) {
+    return this.productService.remove(id, tenantCode);
   }
 }
 

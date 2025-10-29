@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -33,43 +33,71 @@ export class ProductService {
     return product;
   }
 
-  async findAll() {
-    return this.prisma.product.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  }
-
-  async findOne(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+  async findAll(tenantCode: string) {
+    try {
+      return await this.prisma.product.findMany({
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    } catch (error) {
+      if (error.message && error.message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
     }
-
-    return product;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto) {
-    // Check if product exists
-    await this.findOne(id);
+  async findOne(id: string, tenantCode: string) {
+    try {
+      const product = await this.prisma.product.findUnique({
+        where: { id },
+      });
 
-    return this.prisma.product.update({
-      where: { id },
-      data: updateProductDto,
-    });
+      if (!product) {
+        throw new NotFoundException(`Product with ID ${id} not found`);
+      }
+
+      return product;
+    } catch (error) {
+      if (error.message && error.message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
+    }
   }
 
-  async remove(id: string) {
+  async update(id: string, updateProductDto: UpdateProductDto, tenantCode: string) {
     // Check if product exists
-    await this.findOne(id);
+    await this.findOne(id, tenantCode);
 
-    return this.prisma.product.delete({
-      where: { id },
-    });
+    try {
+      return await this.prisma.product.update({
+        where: { id },
+        data: updateProductDto,
+      });
+    } catch (error) {
+      if (error.message && error.message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
+    }
+  }
+
+  async remove(id: string, tenantCode: string) {
+    // Check if product exists
+    await this.findOne(id, tenantCode);
+
+    try {
+      return await this.prisma.product.delete({
+        where: { id },
+      });
+    } catch (error) {
+      if (error.message && error.message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
+    }
   }
 }
 

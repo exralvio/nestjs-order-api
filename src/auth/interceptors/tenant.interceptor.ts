@@ -20,9 +20,13 @@ export class TenantInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    // Set tenant code from user if user is ADMIN
-    // This ensures ADMIN users access their own tenant database for products and orders
-    if (user && user.role === Role.ADMIN && user.tenantCode) {
+    // Priority 1: Set tenant code from query parameter (for explicit tenant access)
+    const queryTenantCode = request.query?.tenantCode;
+    if (queryTenantCode) {
+      this.tenantContext.setTenantCode(queryTenantCode);
+    }
+    // Priority 2: Set tenant code from user if user is ADMIN (fallback)
+    else if (user && user.role === Role.ADMIN && user.tenantCode) {
       this.tenantContext.setTenantCode(user.tenantCode);
     }
 
