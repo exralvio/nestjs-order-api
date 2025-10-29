@@ -56,5 +56,12 @@ export class UserController {
   remove(@Param('id') id: string) {
     return this.userService.remove(id);
   }
+
+  @Get(':id/database-status')
+  @ApiOperation({ summary: 'Check if user database is created and ready' })
+  @Roles(Role.ADMIN)
+  checkDatabaseStatus(@Param('id') id: string) {
+    return this.userService.checkDatabaseStatus(id);
+  }
 }
 

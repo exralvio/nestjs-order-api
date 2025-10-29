@@ -5,6 +5,8 @@ export class UserResponseDto {
   email: string;
   username: string;
   role: Role;
+  tenantCode?: string;
+  isDatabaseCreated: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
