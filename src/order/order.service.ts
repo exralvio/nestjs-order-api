@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { DatabaseManagerService } from '../prisma/database-manager.service';
 import { AddItemDto } from './dto/add-item.dto';
 import { OrderStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -15,6 +16,7 @@ export class OrderService {
   constructor(
     private prisma: PrismaService,
     private tenantContext: TenantContextService,
+    private databaseManager: DatabaseManagerService,
   ) {}
 
   async createOrder(userId: string) {
@@ -162,7 +164,7 @@ export class OrderService {
     });
   }
 
-  async paymentReceived(orderId: string, userId?: string) {
+  async paymentReceived(orderId: string, userId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -172,7 +174,7 @@ export class OrderService {
       throw new NotFoundException(`Order with ID ${orderId} not found`);
     }
 
-    if (userId && order.userId !== userId) {
+    if (order.userId !== userId) {
       throw new ForbiddenException('You do not have permission to update this order');
     }
 
@@ -215,13 +217,17 @@ export class OrderService {
     });
   }
 
-  async completeOrder(orderId: string) {
+  async completeOrder(orderId: string, userId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
     });
 
     if (!order) {
       throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    if (order.userId !== userId) {
+      throw new ForbiddenException('You do not have permission to complete this order');
     }
 
     if (order.status !== OrderStatus.PAID) {
@@ -250,39 +256,74 @@ export class OrderService {
     });
   }
 
-  async findAll(userId?: string) {
-    const where = userId ? { userId } : {};
-    
-    return this.prisma.order.findMany({
-      where,
-      include: {
-        items: {
+  async findAll(userId: string) {
+    // Get all tenants from the users table using the default database
+    const defaultPrisma = this.databaseManager.getDefaultClient();
+    const tenants = await defaultPrisma.user.findMany({
+      where: {
+        tenantCode: {
+          not: null,
+        },
+        isDatabaseCreated: true,
+      },
+      select: {
+        tenantCode: true,
+      },
+    });
+
+    const allOrders = [];
+
+    // Loop through all tenant databases to get orders
+    for (const tenant of tenants) {
+      try {
+        // Get the tenant-specific Prisma client
+        const tenantPrisma = this.databaseManager.getClient(tenant.tenantCode);
+        
+        // Get orders from this tenant's database
+        const tenantOrders = await tenantPrisma.order.findMany({
+          where: { userId },
           include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                description: true,
-                price: true,
+            items: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    price: true,
+                  },
+                },
               },
             },
           },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  }
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
 
-  async findOne(id: string, userId?: string) {
-    const where: any = { id };
-    if (userId) {
-      where.userId = userId;
+        // Add tenant information to each order
+        const ordersWithTenant = tenantOrders.map(order => ({
+          ...order,
+          tenantCode: tenant.tenantCode,
+        }));
+
+        allOrders.push(...ordersWithTenant);
+      } catch (error) {
+        // Log error but continue with other tenants
+        console.error(`Error fetching orders from tenant ${tenant.tenantCode}:`, error);
+      }
     }
 
+    // Sort all orders by creation date (most recent first)
+    return allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async findOne(id: string, userId: string) {
     const order = await this.prisma.order.findFirst({
-      where,
+      where: { 
+        id,
+        userId 
+      },
       include: {
         items: {
           include: {

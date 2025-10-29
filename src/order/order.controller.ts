@@ -36,13 +36,12 @@ export class OrderController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all orders (admin) or user orders' })
+  @ApiOperation({ summary: 'Get user orders' })
   @ApiResponseWrapper({ message: 'Orders retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   findAll(@GetUser() user: any) {
-    // Admins see all orders in their tenant database, customers see only their own
-    const userId = user.role === Role.ADMIN ? undefined : user.id;
-    return this.orderService.findAll(userId);
+    // All users see only their own orders
+    return this.orderService.findAll(user.id);
   }
 
   @Get(':id')
@@ -50,9 +49,8 @@ export class OrderController {
   @ApiResponseWrapper({ message: 'Order retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   findOne(@Param('id') id: string, @GetUser() user: any) {
-    // Admins can see any order in their tenant database, customers see only their own
-    const userId = user.role === Role.ADMIN ? undefined : user.id;
-    return this.orderService.findOne(id, userId);
+    // All users can only see their own orders
+    return this.orderService.findOne(id, user.id);
   }
 
   @Post(':id/items')
@@ -78,17 +76,17 @@ export class OrderController {
   @Post(':id/payment-received')
   @ApiOperation({ summary: 'Mark payment as received (manual trigger)' })
   @ApiResponseWrapper({ message: 'Payment marked as received' })
-  @Roles(Role.ADMIN)
-  paymentReceived(@Param('id') id: string) {
-    return this.orderService.paymentReceived(id);
+  @Roles(Role.ADMIN, Role.CUSTOMER)
+  paymentReceived(@Param('id') id: string, @GetUser() user: any) {
+    return this.orderService.paymentReceived(id, user.id);
   }
 
   @Patch(':id/complete')
   @ApiOperation({ summary: 'Change order status to complete' })
   @ApiResponseWrapper({ message: 'Order completed successfully' })
-  @Roles(Role.ADMIN)
-  complete(@Param('id') id: string) {
-    return this.orderService.completeOrder(id);
+  @Roles(Role.ADMIN, Role.CUSTOMER)
+  complete(@Param('id') id: string, @GetUser() user: any) {
+    return this.orderService.completeOrder(id, user.id);
   }
 }
 
