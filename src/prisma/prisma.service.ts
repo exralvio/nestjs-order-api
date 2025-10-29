@@ -1,4 +1,4 @@
-import { Injectable, Scope, OnModuleInit } from '@nestjs/common';
+import { Injectable, Scope, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { TenantContextService } from './tenant-context.service';
 import { DatabaseManagerService } from './database-manager.service';
@@ -9,6 +9,7 @@ import { DatabaseManagerService } from './database-manager.service';
  */
 @Injectable({ scope: Scope.REQUEST })
 export class PrismaService implements OnModuleInit {
+  private readonly logger = new Logger(PrismaService.name);
   private _client: PrismaClient | null = null;
 
   constructor(
@@ -25,6 +26,11 @@ export class PrismaService implements OnModuleInit {
     if (!this._client) {
       // Get the appropriate client based on tenant context
       const tenantCode = this.tenantContext.getTenantCode();
+      
+      // Log the database URL being used for the current tenant
+      const databaseUrl = this.databaseManager.getDatabaseUrl(tenantCode);
+      this.logger.log(`Using database URL for tenant '${tenantCode || 'default'}': ${this.maskDatabaseUrl(databaseUrl)}`);
+      
       this._client = this.databaseManager.getClient(tenantCode);
     }
     return this._client;
@@ -80,6 +86,40 @@ export class PrismaService implements OnModuleInit {
 
   $executeRawUnsafe(...args: Parameters<typeof PrismaClient.prototype.$executeRawUnsafe>) {
     return this.client.$executeRawUnsafe(...args);
+  }
+
+  /**
+   * Log the current database URL being used for the current tenant
+   * This can be called explicitly for debugging purposes
+   */
+  logCurrentDatabaseUrl(): void {
+    const tenantCode = this.tenantContext.getTenantCode();
+    const databaseUrl = this.databaseManager.getDatabaseUrl(tenantCode);
+    this.logger.log(`Current database URL for tenant '${tenantCode || 'default'}': ${this.maskDatabaseUrl(databaseUrl)}`);
+  }
+
+  /**
+   * Get the current database URL (for debugging purposes)
+   */
+  getCurrentDatabaseUrl(): string {
+    const tenantCode = this.tenantContext.getTenantCode();
+    return this.databaseManager.getDatabaseUrl(tenantCode);
+  }
+
+  /**
+   * Mask sensitive information in database URL for logging
+   */
+  private maskDatabaseUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.password) {
+        urlObj.password = '***';
+      }
+      return urlObj.toString();
+    } catch (error) {
+      // If URL parsing fails, mask password manually
+      return url.replace(/:([^:@]+)@/, ':***@');
+    }
   }
 }
 

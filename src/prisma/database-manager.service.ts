@@ -1,15 +1,16 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class DatabaseManagerService implements OnModuleDestroy {
+  private readonly logger = new Logger(DatabaseManagerService.name);
   private connections: Map<string, PrismaClient> = new Map();
   private readonly databasePrefix: string;
   private readonly baseDatabaseUrl: string;
 
   constructor() {
     // Get database prefix from environment or use default
-    this.databasePrefix = process.env.DATABASE_PREFIX || 'provenant_tenant_';
+    this.databasePrefix = process.env.DATABASE_PREFIX || 'provenant_';
     
     // Get base database URL (without database name)
     const dbUrl = process.env.DATABASE_URL || '';
@@ -38,6 +39,9 @@ export class DatabaseManagerService implements OnModuleDestroy {
     const originalUrl = process.env.DATABASE_URL || '';
     const queryParams = originalUrl.includes('?') ? originalUrl.substring(originalUrl.indexOf('?')) : '';
     const databaseUrl = `${this.baseDatabaseUrl}/${databaseName}${queryParams}`;
+
+    // Log the database URL being used for this tenant
+    this.logger.log(`Creating database connection for tenant '${tenantCode}' with URL: ${this.maskDatabaseUrl(databaseUrl)}`);
 
     const client = new PrismaClient({
       datasources: {
@@ -75,7 +79,8 @@ export class DatabaseManagerService implements OnModuleDestroy {
     try {
       const url = new URL(dbUrl);
       // Reconstruct URL without the pathname (database name)
-      const baseUrl = `${url.protocol}//${url.username}${url.password ? ':' + url.password : ''}@${url.host}${url.port ? ':' + url.port : ''}`;
+      // Note: url.host already includes the port if present, so we don't need to add it separately
+      const baseUrl = `${url.protocol}//${url.username}${url.password ? ':' + url.password : ''}@${url.host}`;
       return baseUrl;
     } catch (error) {
       // Fallback: try to extract manually if URL parsing fails
@@ -107,6 +112,36 @@ export class DatabaseManagerService implements OnModuleDestroy {
     if (client) {
       await client.$disconnect();
       this.connections.delete(tenantCode);
+    }
+  }
+
+  /**
+   * Get the database URL for a specific tenant (for logging purposes)
+   */
+  getDatabaseUrl(tenantCode: string | null): string {
+    if (!tenantCode) {
+      return process.env.DATABASE_URL || 'default';
+    }
+
+    const databaseName = `${this.databasePrefix}${tenantCode.toLowerCase()}`;
+    const originalUrl = process.env.DATABASE_URL || '';
+    const queryParams = originalUrl.includes('?') ? originalUrl.substring(originalUrl.indexOf('?')) : '';
+    return `${this.baseDatabaseUrl}/${databaseName}${queryParams}`;
+  }
+
+  /**
+   * Mask sensitive information in database URL for logging
+   */
+  private maskDatabaseUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.password) {
+        urlObj.password = '***';
+      }
+      return urlObj.toString();
+    } catch (error) {
+      // If URL parsing fails, mask password manually
+      return url.replace(/:([^:@]+)@/, ':***@');
     }
   }
 }
