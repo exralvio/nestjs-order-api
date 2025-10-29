@@ -5,6 +5,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
+import { ApiResponseWrapper } from '../common/decorators/api-response.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -13,6 +14,7 @@ export class AuthController {
 
   @Post('register')
   @ApiOperation({ summary: 'Register user' })
+  @ApiResponseWrapper({ message: 'User registered successfully' })
   @ApiBody({
     description: 'User registration credentials',
     type: RegisterDto,
@@ -41,6 +43,7 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'Login user' })
+  @ApiResponseWrapper({ message: 'Login successful' })
   @ApiBody({
     description: 'User login credentials',
     type: LoginDto,
@@ -68,6 +71,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   @ApiOperation({ summary: 'Get user profile' })
+  @ApiResponseWrapper({ message: 'User profile retrieved successfully' })
   getProfile(@GetUser() user: any) {
     return user;
   }

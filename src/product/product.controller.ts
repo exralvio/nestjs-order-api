@@ -19,6 +19,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { TenantInterceptor } from '../auth/interceptors/tenant.interceptor';
+import { ApiResponseWrapper } from '../common/decorators/api-response.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('products')
@@ -30,6 +31,7 @@ export class ProductController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new product' })
+  @ApiResponseWrapper({ message: 'Product created successfully' })
   @Roles(Role.ADMIN)
   create(@Body() createProductDto: CreateProductDto) {
     return this.productService.create(createProductDto);
@@ -37,6 +39,7 @@ export class ProductController {
 
   @Get()
   @ApiOperation({ summary: 'Get all products' })
+  @ApiResponseWrapper({ message: 'Products retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   findAll() {
     return this.productService.findAll();
@@ -44,6 +47,7 @@ export class ProductController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a product by ID' })
+  @ApiResponseWrapper({ message: 'Product retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   findOne(@Param('id') id: string) {
     return this.productService.findOne(id);
@@ -51,6 +55,7 @@ export class ProductController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a product by ID' })
+  @ApiResponseWrapper({ message: 'Product updated successfully' })
   @Roles(Role.ADMIN)
   update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
     return this.productService.update(id, updateProductDto);
@@ -58,6 +63,7 @@ export class ProductController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a product by ID' })
+  @ApiResponseWrapper({ message: 'Product deleted successfully' })
   @Roles(Role.ADMIN)
   remove(@Param('id') id: string) {
     return this.productService.remove(id);
