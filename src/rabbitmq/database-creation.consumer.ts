@@ -163,6 +163,8 @@ export class DatabaseCreationConsumer implements OnModuleInit {
               const migrationId = this.generateUUID();
               const checksum = this.calculateChecksum(migrationSQL);
               
+              this.logger.log(`Processing migration: ${migrationDir}`);
+              
               // Record migration start
               await tenantClient.$executeRawUnsafe(`
                 INSERT INTO "_prisma_migrations" 
@@ -198,14 +200,28 @@ export class DatabaseCreationConsumer implements OnModuleInit {
                   if (!inString && line.trim().endsWith(';')) {
                     const statement = currentStatement.trim();
                     if (statement && !statement.startsWith('--')) {
-                      await tenantClient.$executeRawUnsafe(statement);
+                      // Skip statements related to users table
+                      const shouldSkip = this.shouldSkipStatement(statement);
+                      if (shouldSkip) {
+                        this.logger.log(`Skipping statement: ${statement.substring(0, 100)}...`);
+                      } else {
+                        this.logger.log(`Executing statement: ${statement.substring(0, 100)}...`);
+                        await tenantClient.$executeRawUnsafe(statement);
+                      }
                     }
                     currentStatement = '';
                   }
                 }
                 
                 if (currentStatement.trim() && !currentStatement.trim().startsWith('--')) {
-                  await tenantClient.$executeRawUnsafe(currentStatement.trim());
+                  const statement = currentStatement.trim();
+                  const shouldSkip = this.shouldSkipStatement(statement);
+                  if (shouldSkip) {
+                    this.logger.log(`Skipping final statement: ${statement.substring(0, 100)}...`);
+                  } else {
+                    this.logger.log(`Executing final statement: ${statement.substring(0, 100)}...`);
+                    await tenantClient.$executeRawUnsafe(statement);
+                  }
                 }
                 
                 const statementCount = migrationSQL
@@ -254,6 +270,53 @@ export class DatabaseCreationConsumer implements OnModuleInit {
       }
       throw error;
     }
+  }
+
+  /**
+   * Check if a SQL statement should be skipped (related to users table)
+   */
+  private shouldSkipStatement(statement: string): boolean {
+    const upperStatement = statement.toUpperCase();
+    
+    // Skip statements that create the users table
+    if (upperStatement.includes('CREATE TABLE "USERS"') || 
+        upperStatement.includes("CREATE TABLE 'USERS'") ||
+        upperStatement.includes('CREATE TABLE USERS')) {
+      this.logger.log(`Found CREATE TABLE users statement to skip`);
+      return true;
+    }
+    
+    // Skip statements that alter the users table
+    if (upperStatement.includes('ALTER TABLE "USERS"') || 
+        upperStatement.includes("ALTER TABLE 'USERS'") ||
+        upperStatement.includes('ALTER TABLE USERS')) {
+      this.logger.log(`Found ALTER TABLE users statement to skip`);
+      return true;
+    }
+    
+    // Skip statements that create indexes on users table
+    if (upperStatement.includes('CREATE UNIQUE INDEX') && 
+        (upperStatement.includes('"USERS"') || upperStatement.includes("'USERS'") || upperStatement.includes('USERS'))) {
+      this.logger.log(`Found CREATE INDEX on users statement to skip`);
+      return true;
+    }
+    
+    // Skip foreign key constraints that reference users table
+    if (upperStatement.includes('REFERENCES "USERS"') || 
+        upperStatement.includes("REFERENCES 'USERS'") ||
+        upperStatement.includes('REFERENCES USERS')) {
+      this.logger.log(`Found REFERENCES users statement to skip`);
+      return true;
+    }
+    
+    // Skip statements that add foreign keys to users table
+    if (upperStatement.includes('ADD CONSTRAINT') && 
+        (upperStatement.includes('"USERS"') || upperStatement.includes("'USERS'") || upperStatement.includes('USERS'))) {
+      this.logger.log(`Found ADD CONSTRAINT on users statement to skip`);
+      return true;
+    }
+    
+    return false;
   }
 
   /**
