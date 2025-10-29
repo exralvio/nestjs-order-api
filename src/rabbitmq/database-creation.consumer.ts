@@ -142,7 +142,7 @@ export class DatabaseCreationConsumer implements OnModuleInit {
         `);
 
         // Step 4: Read and execute migration files in order
-        const migrationsPath = path.join(process.cwd(), 'prisma', 'migrations');
+        const migrationsPath = path.join(process.cwd(), 'prisma', 'tenant_migrations');
         const migrationDirs = fs.readdirSync(migrationsPath, { withFileTypes: true })
           .filter(dirent => dirent.isDirectory())
           .map(dirent => dirent.name)
