@@ -8,10 +8,10 @@ import {
   UseGuards,
   UseInterceptors,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { OrderService } from './order.service';
-import { AddItemDto } from './dto/add-item.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -37,8 +37,35 @@ export class OrderController {
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   @InvalidateCache([{ method: 'findAll', includeUserId: true, isDefaultTenant: true }])
-  create(@GetUser() user: any, @TenantCode() tenantCode: string) {
-    return this.orderService.createOrder(user.id, tenantCode);
+  async create(
+    @GetUser() user: any,
+    @TenantCode() tenantCode: string,
+    @Body()
+    body: {
+      items: Array<{
+        product_id: string;
+        qty: number;
+      }>;
+    },
+  ) {
+    if (!body?.items || !Array.isArray(body.items) || body.items.length === 0) {
+      throw new BadRequestException('items is required and must be a non-empty array');
+    }
+
+    const order = await this.orderService.createOrder(user.id, tenantCode);
+
+    const items = body.items;
+    for (const item of items) {
+      // Map request fields to service DTO fields
+      await this.orderService.addItemToOrder(
+        order.id,
+        user.id,
+        { productId: item.product_id, quantity: item.qty },
+        tenantCode,
+      );
+    }
+
+    return this.orderService.findOne(order.id, user.id);
   }
 
   @Get()
@@ -65,19 +92,7 @@ export class OrderController {
     return this.orderService.findOne(id, user.id);
   }
 
-  @Post(':tenantCode/:id/items')
-  @ApiOperation({ summary: 'Add product to order' })
-  @ApiResponseWrapper({ message: 'Item added to order successfully' })
-  @Roles(Role.ADMIN, Role.CUSTOMER)
-  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
-  addItem(
-    @Param('id') id: string,
-    @Body() addItemDto: AddItemDto,
-    @GetUser() user: any,
-    @TenantCode() tenantCode: string,
-  ) {
-    return this.orderService.addItemToOrder(id, user.id, addItemDto, tenantCode);
-  }
+  // Removed addItem endpoint; items should be provided during create
 
   @Post(':tenantCode/:id/checkout')
   @ApiOperation({ summary: 'Checkout order (change status to waiting for payment)' })
