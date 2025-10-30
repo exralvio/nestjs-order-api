@@ -65,6 +65,8 @@ export class OrderController {
       );
     }
 
+    await this.orderService.enqueueOrderProcessing(order.id, user.id, tenantCode);
+
     return this.orderService.findOne(order.id, user.id);
   }
 

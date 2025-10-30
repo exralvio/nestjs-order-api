@@ -7,6 +7,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private connection: amqp.Connection;
   private channel: amqp.Channel;
   private readonly queueName = 'database-creation';
+  private readonly orderProcessingQueue = 'order-processing';
 
   async onModuleInit() {
     try {
@@ -16,9 +17,12 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       this.connection = await amqp.connect(rabbitmqUrl);
       this.channel = await this.connection.createChannel();
       
-      // Ensure the queue exists
+      // Ensure the queues exist
       await this.channel.assertQueue(this.queueName, {
         durable: true, // Queue survives broker restarts
+      });
+      await this.channel.assertQueue(this.orderProcessingQueue, {
+        durable: true,
       });
       
       this.logger.log('RabbitMQ connection established');
@@ -105,6 +109,65 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async publishOrderProcessingMessage(data: {
+    orderId: string;
+    userId: string;
+    tenantCode: string;
+  }): Promise<void> {
+    try {
+      await this.waitForConnection();
+      await this.channel.assertQueue(this.orderProcessingQueue, { durable: true });
+
+      const message = JSON.stringify(data);
+      const sent = this.channel.sendToQueue(
+        this.orderProcessingQueue,
+        Buffer.from(message),
+        { persistent: true }
+      );
+
+      if (sent) {
+        this.logger.log(
+          `Order processing message published for order ${data.orderId}, user ${data.userId}, tenant ${data.tenantCode}`,
+        );
+      } else {
+        this.logger.warn(`Failed to publish order processing message for order ${data.orderId}`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to publish order processing message:', error);
+      throw error;
+    }
+  }
+
+  async consumeOrderProcessingMessages(
+    callback: (data: { orderId: string; userId: string; tenantCode: string }) => Promise<void>
+  ): Promise<void> {
+    try {
+      await this.waitForConnection();
+      await this.channel.assertQueue(this.orderProcessingQueue, { durable: true });
+
+      await this.channel.consume(this.orderProcessingQueue, async (msg) => {
+        if (msg) {
+          try {
+            const data = JSON.parse(msg.content.toString());
+            this.logger.log(
+              `Processing order ${data.orderId} for user ${data.userId}, tenant ${data.tenantCode}`,
+            );
+            await callback(data);
+            this.channel.ack(msg);
+          } catch (error) {
+            this.logger.error('Error processing order message:', error);
+            this.channel.nack(msg, false, true);
+          }
+        }
+      });
+
+      this.logger.log('Started consuming order processing messages');
+    } catch (error) {
+      this.logger.error('Failed to start consuming order processing messages:', error);
+      throw error;
+    }
+  }
+
   private async waitForConnection(): Promise<void> {
     const maxRetries = 10;
     const retryDelay = 1000; // 1 second
@@ -136,8 +199,11 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     this.connection = await amqp.connect(rabbitmqUrl);
     this.channel = await this.connection.createChannel();
     
-    // Ensure the queue exists
+    // Ensure the queues exist
     await this.channel.assertQueue(this.queueName, {
+      durable: true,
+    });
+    await this.channel.assertQueue(this.orderProcessingQueue, {
       durable: true,
     });
     

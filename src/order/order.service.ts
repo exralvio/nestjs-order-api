@@ -10,6 +10,7 @@ import { DatabaseManagerService } from '../prisma/database-manager.service';
 import { AddItemDto } from './dto/add-item.dto';
 import { OrderStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 
 @Injectable()
 export class OrderService {
@@ -17,6 +18,7 @@ export class OrderService {
     private prisma: PrismaService,
     private tenantContext: TenantContextService,
     private databaseManager: DatabaseManagerService,
+    private rabbitMQ: RabbitMQService,
   ) {}
 
   async createOrder(userId: string, tenantCode: string) {
@@ -34,6 +36,10 @@ export class OrderService {
       }
       throw error;
     }
+  }
+
+  async enqueueOrderProcessing(orderId: string, userId: string, tenantCode: string) {
+    await this.rabbitMQ.publishOrderProcessingMessage({ orderId, userId, tenantCode });
   }
 
   async addItemToOrder(orderId: string, userId: string, addItemDto: AddItemDto, tenantCode: string) {
