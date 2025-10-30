@@ -47,6 +47,60 @@ A NestJS, Prisma, PostgreSQL multi-tenant demo with JWT auth, product catalog, a
 ---
 
 ## Quick start
+
+### Option 1: Docker (Recommended)
+
+The easiest way to run the entire stack is using Docker Compose. This will start PostgreSQL, Redis, RabbitMQ, and the application all in containers.
+
+**Using npm scripts (easiest):**
+```bash
+# Start all services in detached mode
+npm run docker:up
+
+# Stop all services and remove volumes (complete reset)
+npm run docker:down
+```
+
+**Using docker-compose directly:**
+```bash
+# Start all services (attached mode, see logs)
+docker-compose up --build
+
+# Or start in detached mode
+docker-compose up --build -d
+
+# Stop all services
+docker-compose down
+
+# Stop all services and remove volumes (complete reset)
+docker-compose down -v
+```
+
+The start command will:
+- Build the application Docker image
+- Start PostgreSQL (on port 5432), Redis (on port 6379), and RabbitMQ (management UI on port 15672)
+- Automatically run Prisma migrations and seed the database
+- Start both the API server and RabbitMQ consumers using PM2
+
+**Access the application:**
+- API: `http://localhost:3000/api`
+- Swagger docs: `http://localhost:3000/api/docs`
+- RabbitMQ Management UI: `http://localhost:15672` (guest/guest)
+
+**View logs:**
+```bash
+docker-compose logs -f app
+```
+
+**Note**: Data volumes persist between restarts. To completely reset:
+```bash
+npm run docker:down
+# or
+docker-compose down -v
+```
+
+### Option 2: Local Development
+
 1) Install dependencies:
 ```bash
 npm install
