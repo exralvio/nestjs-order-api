@@ -218,11 +218,22 @@ Environment:
 ---
 
 ## Testing
-- Unit/E2E setup via Jest. Run:
+### Testing the rate limiter (unit and E2E with Supertest)
+- **Unit tests**: Focused tests validate the interceptor/decorator behavior in isolation and within product/order controllers. See `src/product/product.controller.spec.ts` for examples of asserting capped requests and header presence.
+- **E2E tests (Supertest)**: End-to-end specs exercise the full Nest app and verify rate limiting with real HTTP calls:
+  - `test/product-rate-limit.e2e-spec.ts`
+  - `test/order-rate-limit.e2e-spec.ts`
+
+Run tests:
 ```bash
-npm run test
-npm run test:e2e
+npm run test        # unit tests
+npm run test:e2e    # E2E tests (Supertest)
 ```
+
+What the specs assert:
+- **Capping**: After N allowed requests within the window, the next request returns `429 Too Many Requests`.
+- **Headers**: Responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`.
+- **Scoping**: Limits are applied per method and principal (JWT user or IP), and tenant when `:tenantCode` is present.
 
 ---
 
