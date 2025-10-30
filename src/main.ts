@@ -25,8 +25,8 @@ async function bootstrap() {
 
     // Swagger configuration
     const config = new DocumentBuilder()
-      .setTitle('Provenant API')
-      .setDescription('API documentation for Provenant application')
+      .setTitle('Multi-Tenant Order API')
+      .setDescription('API documentation for Multi-Tenant Order application')
       .setVersion('1.0')
       .addBearerAuth() // If you're using JWT authentication
       .build();

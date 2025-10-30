@@ -18,7 +18,7 @@ export class DatabaseCreationConsumer implements OnModuleInit {
     private prisma: DefaultPrismaService,
     private databaseManager: DatabaseManagerService,
   ) {
-    this.databasePrefix = process.env.DATABASE_PREFIX || 'provenant_';
+    this.databasePrefix = process.env.DATABASE_PREFIX || 'tenant_';
     const dbUrl = process.env.DATABASE_URL || '';
     this.baseDatabaseUrl = this.extractBaseUrl(dbUrl);
   }

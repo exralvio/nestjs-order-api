@@ -10,7 +10,7 @@ export class DatabaseManagerService implements OnModuleDestroy {
 
   constructor() {
     // Get database prefix from environment or use default
-    this.databasePrefix = process.env.DATABASE_PREFIX || 'provenant_';
+    this.databasePrefix = process.env.DATABASE_PREFIX || 'tenant';
     
     // Get base database URL (without database name)
     const dbUrl = process.env.DATABASE_URL || '';
