@@ -321,7 +321,7 @@ export class OrderService {
     }
   }
 
-  async findAll(userId: string) {
+  async findAll(userId: string, page: number, perPage: number) {
     // Get all tenants from the users table using the default database
     const defaultPrisma = this.databaseManager.getDefaultClient();
     const tenants = await defaultPrisma.user.findMany({
@@ -336,7 +336,7 @@ export class OrderService {
       },
     });
 
-    const allOrders = [];
+    const allOrders = [] as any[];
 
     // Loop through all tenant databases to get orders
     for (const tenant of tenants) {
@@ -380,7 +380,21 @@ export class OrderService {
     }
 
     // Sort all orders by creation date (most recent first)
-    return allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const sorted = allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const total = sorted.length;
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const currentPage = Math.min(page, totalPages);
+    const start = (currentPage - 1) * perPage;
+    const data = sorted.slice(start, start + perPage);
+
+    return {
+      page: currentPage,
+      per_page: perPage,
+      total,
+      total_pages: totalPages,
+      data,
+    };
   }
 
   async findOne(id: string, userId: string) {

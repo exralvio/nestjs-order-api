@@ -8,8 +8,9 @@ import {
   Delete,
   UseGuards,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiParam } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -44,9 +45,17 @@ export class ProductController {
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Products retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
-  @Cacheable({ ttl: 300 })
-  async findAll(@TenantCode() tenantCode: string) {
-    return this.productService.findAll(tenantCode);
+  @Cacheable({ ttl: 300, includeUserId: true })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'per_page', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
+  async findAll(
+    @TenantCode() tenantCode: string,
+    @Query('page') page?: string,
+    @Query('per_page') perPage?: string,
+  ) {
+    const pageNum = Math.max(1, parseInt(page ?? '1', 10) || 1);
+    const perPageNum = Math.max(1, Math.min(100, parseInt(perPage ?? '10', 10) || 10));
+    return this.productService.findAll(tenantCode, pageNum, perPageNum);
   }
 
   @Get(':id')

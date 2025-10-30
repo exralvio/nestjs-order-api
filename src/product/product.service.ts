@@ -33,13 +33,27 @@ export class ProductService {
     return product;
   }
 
-  async findAll(tenantCode: string) {
+  async findAll(tenantCode: string, page: number, perPage: number) {
     try {
-      return await this.prisma.product.findMany({
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+      const [total, data] = await Promise.all([
+        this.prisma.product.count(),
+        this.prisma.product.findMany({
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * perPage,
+          take: perPage,
+        }),
+      ]);
+
+      const totalPages = Math.max(1, Math.ceil(total / perPage));
+      const currentPage = Math.min(page, totalPages);
+
+      return {
+        page: currentPage,
+        per_page: perPage,
+        total,
+        total_pages: totalPages,
+        data,
+      };
     } catch (error) {
       if (error.message && error.message.includes('does not exist')) {
         throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);

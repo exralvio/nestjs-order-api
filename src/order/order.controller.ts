@@ -7,6 +7,7 @@ import {
   Patch,
   UseGuards,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { OrderService } from './order.service';
@@ -44,10 +45,14 @@ export class OrderController {
   @ApiOperation({ summary: 'Get user orders' })
   @ApiResponseWrapper({ message: 'Orders retrieved successfully' })
   @Roles(Role.CUSTOMER)
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'per_page', required: false, type: Number, description: 'Items per page (default: 10)' })
   @Cacheable({ ttl: 300, includeUserId: true })
-  findAll(@GetUser() user: any) {
+  findAll(@GetUser() user: any, @Param() _params: any, @Query('page') page?: string, @Query('per_page') perPage?: string) {
     // All users see only their own orders
-    return this.orderService.findAll(user.id);
+    const pageNum = Math.max(1, parseInt(page ?? '1', 10) || 1);
+    const perPageNum = Math.max(1, Math.min(100, parseInt(perPage ?? '10', 10) || 10));
+    return this.orderService.findAll(user.id, pageNum, perPageNum);
   }
 
   @Get(':tenantCode/:id')

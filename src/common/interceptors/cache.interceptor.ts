@@ -59,13 +59,22 @@ export class CacheInterceptor implements NestInterceptor {
                 const user = request.user;
                 const derivedUserId = user?.id ?? user?.userId ?? user?.sub;
                 if (derivedUserId !== undefined) {
-                  argsKey = String(derivedUserId);
+                  if (includeArgs) {
+                    // When both user and args are part of the key, delete all keys for this user regardless of args
+                    await this.cacheService.delMethodUserKeys(
+                      controllerName,
+                      method,
+                      String(derivedUserId),
+                      isDefaultTenant ? 'default' : undefined,
+                    );
+                    continue;
+                  } else {
+                    argsKey = String(derivedUserId);
+                  }
                 }
               } else if (includeArgs) {
                 argsKey = args;
               }
-
-              console.log('-------- argsKey', argsKey);
 
               await this.cacheService.del(
                 controllerName,
@@ -86,16 +95,19 @@ export class CacheInterceptor implements NestInterceptor {
     // Handle cache retrieval
     if (cacheOptions !== undefined) {
       const args = this.getMethodArguments(handler, request);
-      let argsKey = cacheOptions.includeArgs !== false ? args : undefined;
+      const shouldIncludeArgs = cacheOptions.includeArgs !== false;
+      let argsKey: any = shouldIncludeArgs ? args : undefined;
 
-      // Optionally include authenticated user id in the cache key
+      // Optionally include authenticated user id in the cache key, combined with args when present
       if (cacheOptions.includeUserId) {
         const user = request.user;
         const derivedUserId = user?.id ?? user?.userId ?? user?.sub;
         if (derivedUserId !== undefined) {
-          // When includeUserId is enabled, the user id alone determines the key suffix
-          // so we pass it as a string to avoid JSON serialization in the final key
-          argsKey = String(derivedUserId);
+          if (shouldIncludeArgs && argsKey) {
+            argsKey = { __userId: String(derivedUserId), ...argsKey };
+          } else {
+            argsKey = String(derivedUserId);
+          }
         }
       }
       

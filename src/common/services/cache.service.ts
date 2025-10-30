@@ -107,6 +107,28 @@ export class CacheService {
   }
 
   /**
+   * Delete all cache entries for a specific controller.method and user id prefix
+   */
+  async delMethodUserKeys(
+    controllerName: string,
+    methodName: string,
+    userId: string,
+    tenantCodeOverride?: string
+  ): Promise<void> {
+    try {
+      const tenantCode = tenantCodeOverride ?? (this.tenantContext.getTenantCode() || 'default');
+      const prefix = `${tenantCode}:${controllerName}:${methodName}:${userId}`;
+      const keys = await this.redis.keys(`${prefix}*`);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+        this.logger.debug(`Deleted ${keys.length} cache keys for user prefix: ${prefix}`);
+      }
+    } catch (error) {
+      this.logger.error('Error deleting method user keys from cache:', error);
+    }
+  }
+
+  /**
    * Delete all cache entries for a specific controller
    */
   async delPattern(controllerName: string, tenantCodeOverride?: string): Promise<void> {
