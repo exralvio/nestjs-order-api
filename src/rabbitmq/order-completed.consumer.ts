@@ -29,14 +29,15 @@ export class OrderCompletedConsumer implements OnModuleInit {
     orderId: string;
     userId: string;
     tenantCode: string;
+    transactionId: string;
   }): Promise<void> {
-    const { orderId, tenantCode } = data;
+    const { orderId, tenantCode, transactionId } = data;
     const tenantPrisma = this.databaseManager.getClient(tenantCode);
 
     // 1) Update status to COMPLETE
     await tenantPrisma.order.update({
       where: { id: orderId },
-      data: { status: OrderStatus.COMPLETE },
+      data: { status: OrderStatus.COMPLETE, transactionId },
     });
 
     // 2) Send success email (stub)

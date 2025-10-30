@@ -42,7 +42,7 @@ export class OrderService {
     await this.rabbitMQ.publishOrderProcessingMessage({ orderId, userId, tenantCode });
   }
 
-  async enqueueOrderCompleted(orderId: string, userId: string, tenantCode: string) {
+  async enqueueOrderCompleted(orderId: string, userId: string, tenantCode: string, transactionId: string) {
     // Basic validation: ensure order exists and belongs to user before enqueueing
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) {
@@ -51,7 +51,7 @@ export class OrderService {
     if (order.userId !== userId) {
       throw new ForbiddenException('You do not have permission to complete this order');
     }
-    await this.rabbitMQ.publishOrderCompletedMessage({ orderId, userId, tenantCode });
+    await this.rabbitMQ.publishOrderCompletedMessage({ orderId, userId, tenantCode, transactionId });
     return { queued: true };
   }
 

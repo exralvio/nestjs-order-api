@@ -221,6 +221,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     orderId: string;
     userId: string;
     tenantCode: string;
+    transactionId: string;
   }): Promise<void> {
     try {
       await this.waitForConnection();
@@ -247,7 +248,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   }
 
   async consumeOrderCompletedMessages(
-    callback: (data: { orderId: string; userId: string; tenantCode: string }) => Promise<void>
+    callback: (data: { orderId: string; userId: string; tenantCode: string; transactionId: string }) => Promise<void>
   ): Promise<void> {
     try {
       await this.waitForConnection();

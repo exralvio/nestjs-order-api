@@ -113,8 +113,15 @@ export class OrderController {
     @Param('id') id: string,
     @GetUser() user: any,
     @TenantCode() tenantCode: string,
+    @Body()
+    body: {
+      transaction_id: string;
+    },
   ) {
-    return this.orderService.enqueueOrderCompleted(id, user.id, tenantCode);
+    if (!body || typeof body.transaction_id !== 'string' || body.transaction_id.trim().length === 0) {
+      throw new BadRequestException('transaction_id is required');
+    }
+    return this.orderService.enqueueOrderCompleted(id, user.id, tenantCode, body.transaction_id);
   }
 }
 
