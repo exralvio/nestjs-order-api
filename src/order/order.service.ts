@@ -23,13 +23,14 @@ export class OrderService {
 
   async createOrder(userId: string, tenantCode: string) {
     try {
-      return this.prisma.order.create({
+      const order = await this.prisma.order.create({
       data: {
         userId,
         status: OrderStatus.PENDING,
         total: 0,
       },
     });
+      return order;
     } catch (error) {
       if ((error as Error).message && (error as Error).message.includes('does not exist')) {
         throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
@@ -199,7 +200,7 @@ export class OrderService {
 
     // Update order status to WAITING_FOR_PAYMENT
     try {
-      return this.prisma.order.update({
+      const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.WAITING_FOR_PAYMENT,
@@ -219,6 +220,7 @@ export class OrderService {
         },
       },
     });
+      return updated;
     } catch (error) {
       if ((error as Error).message && (error as Error).message.includes('does not exist')) {
         throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
@@ -266,7 +268,7 @@ export class OrderService {
 
     // Update order status to PAID
     try {
-      return this.prisma.order.update({
+      const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.PAID,
@@ -286,6 +288,7 @@ export class OrderService {
         },
       },
     });
+      return updated;
     } catch (error) {
       if ((error as Error).message && (error as Error).message.includes('does not exist')) {
         throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
@@ -312,7 +315,7 @@ export class OrderService {
     }
 
     try {
-      return this.prisma.order.update({
+      const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.COMPLETE,
@@ -332,6 +335,7 @@ export class OrderService {
         },
       },
     });
+      return updated;
     } catch (error) {
       if ((error as Error).message && (error as Error).message.includes('does not exist')) {
         throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);

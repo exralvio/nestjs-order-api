@@ -19,9 +19,9 @@ import { TenantInterceptor } from '../auth/interceptors/tenant.interceptor';
 import { ApiResponseWrapper } from '../common/decorators/api-response.decorator';
 import { Role } from '@prisma/client';
 import { TenantCode } from '../common/decorators/tenant-code.decorator';
-import { Cacheable, InvalidateCache } from 'src/common/decorators/cache.decorator';
-import { CacheInterceptor } from 'src/common/interceptors/cache.interceptor';
-import { RateLimit } from 'src/common/decorators/rate-limit.decorator';
+import { Cacheable, InvalidateCache } from '../common/decorators/cache.decorator';
+import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
 
 @ApiTags('orders')
 @Controller('orders')
