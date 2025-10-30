@@ -19,17 +19,24 @@ export class OrderService {
     private databaseManager: DatabaseManagerService,
   ) {}
 
-  async createOrder(userId: string) {
-    return this.prisma.order.create({
+  async createOrder(userId: string, tenantCode: string) {
+    try {
+      return this.prisma.order.create({
       data: {
         userId,
         status: OrderStatus.PENDING,
         total: 0,
       },
     });
+    } catch (error) {
+      if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
+    }
   }
 
-  async addItemToOrder(orderId: string, userId: string, addItemDto: AddItemDto) {
+  async addItemToOrder(orderId: string, userId: string, addItemDto: AddItemDto, tenantCode: string) {
     // Verify order exists and belongs to user
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -48,9 +55,17 @@ export class OrderService {
     }
 
     // Verify product exists
-    const product = await this.prisma.product.findUnique({
-      where: { id: addItemDto.productId },
-    });
+    let product;
+    try {
+      product = await this.prisma.product.findUnique({
+        where: { id: addItemDto.productId },
+      });
+    } catch (error) {
+      if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
+    }
 
     if (!product) {
       throw new NotFoundException(`Product with ID ${addItemDto.productId} not found`);
@@ -72,28 +87,42 @@ export class OrderService {
     let orderItem;
     if (existingItem) {
       // Update quantity if item already exists
-      orderItem = await this.prisma.orderItem.update({
-        where: { id: existingItem.id },
-        data: {
-          quantity: existingItem.quantity + addItemDto.quantity,
-        },
-        include: {
-          product: true,
-        },
-      });
+      try {
+        orderItem = await this.prisma.orderItem.update({
+          where: { id: existingItem.id },
+          data: {
+            quantity: existingItem.quantity + addItemDto.quantity,
+          },
+          include: {
+            product: true,
+          },
+        });
+      } catch (error) {
+        if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+          throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+        }
+        throw error;
+      }
     } else {
       // Create new order item
-      orderItem = await this.prisma.orderItem.create({
-        data: {
-          orderId,
-          productId: addItemDto.productId,
-          quantity: addItemDto.quantity,
-          price: product.price,
-        },
-        include: {
-          product: true,
-        },
-      });
+      try {
+        orderItem = await this.prisma.orderItem.create({
+          data: {
+            orderId,
+            productId: addItemDto.productId,
+            quantity: addItemDto.quantity,
+            price: product.price,
+          },
+          include: {
+            product: true,
+          },
+        });
+      } catch (error) {
+        if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+          throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+        }
+        throw error;
+      }
     }
 
     // Recalculate order total
@@ -102,7 +131,7 @@ export class OrderService {
     return orderItem;
   }
 
-  async checkoutOrder(orderId: string, userId: string) {
+  async checkoutOrder(orderId: string, userId: string, tenantCode: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -126,9 +155,17 @@ export class OrderService {
 
     // Verify stock availability for all items
     for (const item of order.items) {
-      const product = await this.prisma.product.findUnique({
-        where: { id: item.productId },
-      });
+      let product;
+      try {
+        product = await this.prisma.product.findUnique({
+          where: { id: item.productId },
+        });
+      } catch (error) {
+        if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+          throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+        }
+        throw error;
+      }
 
       if (!product) {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
@@ -142,7 +179,8 @@ export class OrderService {
     }
 
     // Update order status to WAITING_FOR_PAYMENT
-    return this.prisma.order.update({
+    try {
+      return this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.WAITING_FOR_PAYMENT,
@@ -162,9 +200,15 @@ export class OrderService {
         },
       },
     });
+    } catch (error) {
+      if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
+    }
   }
 
-  async paymentReceived(orderId: string, userId: string) {
+  async paymentReceived(orderId: string, userId: string, tenantCode: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -184,18 +228,26 @@ export class OrderService {
 
     // Deduct stock from products
     for (const item of order.items) {
-      await this.prisma.product.update({
-        where: { id: item.productId },
-        data: {
-          stock: {
-            decrement: item.quantity,
+      try {
+        await this.prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
           },
-        },
-      });
+        });
+      } catch (error) {
+        if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+          throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+        }
+        throw error;
+      }
     }
 
     // Update order status to PAID
-    return this.prisma.order.update({
+    try {
+      return this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.PAID,
@@ -215,9 +267,15 @@ export class OrderService {
         },
       },
     });
+    } catch (error) {
+      if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
+    }
   }
 
-  async completeOrder(orderId: string, userId: string) {
+  async completeOrder(orderId: string, userId: string, tenantCode: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
     });
@@ -234,7 +292,8 @@ export class OrderService {
       throw new BadRequestException('Order must be paid before it can be completed');
     }
 
-    return this.prisma.order.update({
+    try {
+      return this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.COMPLETE,
@@ -254,6 +313,12 @@ export class OrderService {
         },
       },
     });
+    } catch (error) {
+      if ((error as Error).message && (error as Error).message.includes('does not exist')) {
+        throw new BadRequestException(`Tenant database for '${tenantCode}' does not exist. Please ensure the tenant is properly set up.`);
+      }
+      throw error;
+    }
   }
 
   async findAll(userId: string) {
@@ -318,7 +383,7 @@ export class OrderService {
     return allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  async findOne(id: string, userId: string) {
+  async findOne(id: string, userId: string, tenantCode: string) {
     const order = await this.prisma.order.findFirst({
       where: { 
         id,
