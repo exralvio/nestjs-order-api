@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Observable, of } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { Cacheable, InvalidateCache, CacheOptions, CACHE_KEY, INVALIDATE_CACHE } from '../decorators/cache.decorator';
+import { Cacheable, CacheOptions, CACHE_KEY, INVALIDATE_CACHE, InvalidateTarget } from '../decorators/cache.decorator';
 import { CacheService } from '../services/cache.service';
 
 @Injectable()
@@ -32,21 +32,47 @@ export class CacheInterceptor implements NestInterceptor {
     const cacheOptions = this.reflector.get<CacheOptions>(CACHE_KEY, handler);
     
     // Check if method should invalidate cache
-    const methodsToInvalidate = this.reflector.get<string[]>(INVALIDATE_CACHE, handler);
+    const methodsToInvalidate = this.reflector.get<InvalidateTarget[]>(INVALIDATE_CACHE, handler);
     
     // Handle cache invalidation
     if (methodsToInvalidate) {
       return next.handle().pipe(
         tap(async () => {
           // Invalidate cache for specified methods
-          for (const method of methodsToInvalidate) {
+          for (const target of methodsToInvalidate) {
+            const isString = typeof target === 'string';
+            const method = isString ? target : target.method;
+            const isDefaultTenant = isString ? false : target.isDefaultTenant === true;
+
             if (method === '*') {
               // Invalidate all methods for this controller
-              await this.cacheService.delPattern(controllerName);
+              await this.cacheService.delPattern(controllerName, isDefaultTenant ? 'default' : undefined);
             } else {
-              // Get request arguments for cache key
+              // Build args for the cache key based on target options
+              let argsKey: any = undefined;
               const args = this.getMethodArguments(handler, request);
-              await this.cacheService.del(controllerName, method, args);
+
+              const includeArgs = isString ? true : target.includeArgs !== false;
+              const includeUserId = isString ? false : target.includeUserId === true;
+
+              if (includeUserId) {
+                const user = request.user;
+                const derivedUserId = user?.id ?? user?.userId ?? user?.sub;
+                if (derivedUserId !== undefined) {
+                  argsKey = String(derivedUserId);
+                }
+              } else if (includeArgs) {
+                argsKey = args;
+              }
+
+              console.log('-------- argsKey', argsKey);
+
+              await this.cacheService.del(
+                controllerName,
+                method,
+                argsKey,
+                isDefaultTenant ? 'default' : undefined,
+              );
             }
           }
           
@@ -60,7 +86,18 @@ export class CacheInterceptor implements NestInterceptor {
     // Handle cache retrieval
     if (cacheOptions !== undefined) {
       const args = this.getMethodArguments(handler, request);
-      const argsKey = cacheOptions.includeArgs !== false ? args : undefined;
+      let argsKey = cacheOptions.includeArgs !== false ? args : undefined;
+
+      // Optionally include authenticated user id in the cache key
+      if (cacheOptions.includeUserId) {
+        const user = request.user;
+        const derivedUserId = user?.id ?? user?.userId ?? user?.sub;
+        if (derivedUserId !== undefined) {
+          // When includeUserId is enabled, the user id alone determines the key suffix
+          // so we pass it as a string to avoid JSON serialization in the final key
+          argsKey = String(derivedUserId);
+        }
+      }
       
       // Try to get from cache
       const cached = await this.cacheService.get(controllerName, methodName, argsKey);

@@ -31,10 +31,16 @@ export class CacheService {
   private generateCacheKey(
     controllerName: string,
     methodName: string,
-    args?: any
+    args?: any,
+    tenantCodeOverride?: string
   ): string {
-    const tenantCode = this.tenantContext.getTenantCode() || 'default';
-    const argsString = args ? `:${JSON.stringify(args)}` : '';
+    const tenantCode = tenantCodeOverride ?? (this.tenantContext.getTenantCode() || 'default');
+    const argsString =
+      args === undefined
+        ? ''
+        : typeof args === 'string'
+          ? `:${args}`
+          : `:${JSON.stringify(args)}`;
     return `${tenantCode}:${controllerName}:${methodName}${argsString}`;
   }
 
@@ -88,10 +94,11 @@ export class CacheService {
   async del(
     controllerName: string,
     methodName: string,
-    args?: any
+    args?: any,
+    tenantCodeOverride?: string
   ): Promise<void> {
     try {
-      const key = this.generateCacheKey(controllerName, methodName, args);
+      const key = this.generateCacheKey(controllerName, methodName, args, tenantCodeOverride);
       await this.redis.del(key);
       this.logger.debug(`Deleted cache key: ${key}`);
     } catch (error) {
@@ -102,9 +109,10 @@ export class CacheService {
   /**
    * Delete all cache entries for a specific controller
    */
-  async delPattern(controllerName: string): Promise<void> {
+  async delPattern(controllerName: string, tenantCodeOverride?: string): Promise<void> {
     try {
-      const pattern = `${this.tenantContext.getTenantCode() || 'default'}:${controllerName}:*`;
+      const tenantCode = tenantCodeOverride ?? (this.tenantContext.getTenantCode() || 'default');
+      const pattern = `${tenantCode}:${controllerName}:*`;
       const keys = await this.redis.keys(pattern);
       
       if (keys.length > 0) {

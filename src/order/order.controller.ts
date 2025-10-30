@@ -19,11 +19,13 @@ import { TenantInterceptor } from '../auth/interceptors/tenant.interceptor';
 import { ApiResponseWrapper } from '../common/decorators/api-response.decorator';
 import { Role } from '@prisma/client';
 import { TenantCode } from '../common/decorators/tenant-code.decorator';
+import { Cacheable, InvalidateCache } from 'src/common/decorators/cache.decorator';
+import { CacheInterceptor } from 'src/common/interceptors/cache.interceptor';
 
 @ApiTags('orders')
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@UseInterceptors(TenantInterceptor)
+@UseInterceptors(TenantInterceptor, CacheInterceptor)
 @ApiBearerAuth()
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
@@ -33,6 +35,7 @@ export class OrderController {
   @ApiResponseWrapper({ message: 'Order created successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
+  @InvalidateCache([{ method: 'findAll', includeUserId: true, isDefaultTenant: true }])
   create(@GetUser() user: any, @TenantCode() tenantCode: string) {
     return this.orderService.createOrder(user.id, tenantCode);
   }
@@ -41,6 +44,7 @@ export class OrderController {
   @ApiOperation({ summary: 'Get user orders' })
   @ApiResponseWrapper({ message: 'Orders retrieved successfully' })
   @Roles(Role.CUSTOMER)
+  @Cacheable({ ttl: 300, includeUserId: true })
   findAll(@GetUser() user: any) {
     // All users see only their own orders
     return this.orderService.findAll(user.id);
