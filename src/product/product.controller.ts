@@ -48,7 +48,7 @@ export class ProductController {
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Products retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
-  @Cacheable({ ttl: 300, includeUserId: true })
+  @Cacheable({ ttl: 300 })
   @RateLimit({ windowMs: 60_000, max: 30 })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'per_page', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
