@@ -94,17 +94,6 @@ export class OrderController {
     return this.orderService.findOne(id, user.id);
   }
 
-  // Removed addItem endpoint; items should be provided during create
-
-  @Post(':tenantCode/:id/checkout')
-  @ApiOperation({ summary: 'Checkout order (change status to waiting for payment)' })
-  @ApiResponseWrapper({ message: 'Order checkout successful' })
-  @Roles(Role.ADMIN, Role.CUSTOMER)
-  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
-  checkout(@Param('id') id: string, @GetUser() user: any, @TenantCode() tenantCode: string) {
-    return this.orderService.checkoutOrder(id, user.id, tenantCode);
-  }
-
   @Post(':tenantCode/:id/payment-received')
   @ApiOperation({ summary: 'Mark payment as received (manual trigger)' })
   @ApiResponseWrapper({ message: 'Payment marked as received' })
@@ -114,13 +103,18 @@ export class OrderController {
     return this.orderService.paymentReceived(id, user.id, tenantCode);
   }
 
-  @Patch(':tenantCode/:id/complete')
-  @ApiOperation({ summary: 'Change order status to complete' })
-  @ApiResponseWrapper({ message: 'Order completed successfully' })
+  @Post(':tenantCode/:id/complete')
+  @ApiOperation({ summary: 'Mark order as completed (async via queue)' })
+  @ApiResponseWrapper({ message: 'Order completion queued' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
-  complete(@Param('id') id: string, @GetUser() user: any, @TenantCode() tenantCode: string) {
-    return this.orderService.completeOrder(id, user.id, tenantCode);
+  @InvalidateCache([{ method: 'findAll', includeUserId: true, isDefaultTenant: true }])
+  async completeOrder(
+    @Param('id') id: string,
+    @GetUser() user: any,
+    @TenantCode() tenantCode: string,
+  ) {
+    return this.orderService.enqueueOrderCompleted(id, user.id, tenantCode);
   }
 }
 

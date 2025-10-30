@@ -8,6 +8,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private channel: amqp.Channel;
   private readonly queueName = 'database-creation';
   private readonly orderProcessingQueue = 'order-processing';
+  private readonly orderCompletedQueue = 'order-completed';
 
   async onModuleInit() {
     try {
@@ -22,6 +23,9 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
         durable: true, // Queue survives broker restarts
       });
       await this.channel.assertQueue(this.orderProcessingQueue, {
+        durable: true,
+      });
+      await this.channel.assertQueue(this.orderCompletedQueue, {
         durable: true,
       });
       
@@ -206,7 +210,69 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     await this.channel.assertQueue(this.orderProcessingQueue, {
       durable: true,
     });
+    await this.channel.assertQueue(this.orderCompletedQueue, {
+      durable: true,
+    });
     
     this.logger.log('RabbitMQ connection established');
+  }
+
+  async publishOrderCompletedMessage(data: {
+    orderId: string;
+    userId: string;
+    tenantCode: string;
+  }): Promise<void> {
+    try {
+      await this.waitForConnection();
+      await this.channel.assertQueue(this.orderCompletedQueue, { durable: true });
+
+      const message = JSON.stringify(data);
+      const sent = this.channel.sendToQueue(
+        this.orderCompletedQueue,
+        Buffer.from(message),
+        { persistent: true }
+      );
+
+      if (sent) {
+        this.logger.log(
+          `Order completed message published for order ${data.orderId}, user ${data.userId}, tenant ${data.tenantCode}`,
+        );
+      } else {
+        this.logger.warn(`Failed to publish order completed message for order ${data.orderId}`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to publish order completed message:', error);
+      throw error;
+    }
+  }
+
+  async consumeOrderCompletedMessages(
+    callback: (data: { orderId: string; userId: string; tenantCode: string }) => Promise<void>
+  ): Promise<void> {
+    try {
+      await this.waitForConnection();
+      await this.channel.assertQueue(this.orderCompletedQueue, { durable: true });
+
+      await this.channel.consume(this.orderCompletedQueue, async (msg) => {
+        if (msg) {
+          try {
+            const data = JSON.parse(msg.content.toString());
+            this.logger.log(
+              `Processing order completion ${data.orderId} for user ${data.userId}, tenant ${data.tenantCode}`,
+            );
+            await callback(data);
+            this.channel.ack(msg);
+          } catch (error) {
+            this.logger.error('Error processing order completed message:', error);
+            this.channel.nack(msg, false, true);
+          }
+        }
+      });
+
+      this.logger.log('Started consuming order completed messages');
+    } catch (error) {
+      this.logger.error('Failed to start consuming order completed messages:', error);
+      throw error;
+    }
   }
 }
