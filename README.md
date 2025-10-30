@@ -2,6 +2,24 @@
 
 A NestJS, Prisma, PostgreSQL multi-tenant demo with JWT auth, product catalog, and order processing powered by Redis caching and RabbitMQ-based asynchronous workflows.
 
+### Architecture decisions (why Prisma, why Redis)
+- **Prisma (ORM)**: Strong type-safety, excellent DX, and first-class PostgreSQL support. Prisma clients can be dynamically instantiated per-tenant with different `DATABASE_URL`s, which fits database-per-tenant models well. Migrations are managed and auditable; tenant-specific SQL can be applied programmatically.
+- **Redis (cache)**: Low-latency hot-path caching and request/result memoization. Works as a shared, external cache across horizontally scaled API instances and consumers. Keys are tenant/user-scoped to preserve isolation and allow targeted invalidation.
+- **RabbitMQ (queue)**: Reliable background processing for database creation and order lifecycle steps. Decouples user-facing requests from longer-running work and improves perceived performance and reliability.
+
+### How multi-tenancy is handled
+- **Database-per-tenant**: Each tenant has its own PostgreSQL database named `${DATABASE_PREFIX}${tenantCode}` for strong data isolation.
+- **Request-scoped Prisma**: `TenantContextService` resolves the active tenant from route (`:tenantCode`) or ADMIN user. `PrismaService` delegates to `DatabaseManagerService` to provide a Prisma client bound to that tenant DB for the lifetime of the request.
+- **On-demand provisioning**: Creating an ADMIN with a unique `tenantCode` enqueues a job. A consumer creates the tenant DB and applies migrations from `prisma/tenant_migrations/*`, then marks `isDatabaseCreated=true`.
+- **Default DB for users**: Platform users live in the default database; tenant DBs only contain business entities (products, orders, order_items).
+
+### How the system scales in production
+- **Stateless API**: All state (DB, Redis, RabbitMQ) is external, enabling horizontal scaling of API/consumer processes behind a load balancer.
+- **Connection management**: One Prisma client per-request per-tenant, pooled by the driver. Consider a gateway pooler (e.g., PgBouncer) and sane pool limits for many tenants.
+- **Cache effectiveness**: Redis absorbs read load; cache keys are tenant-scoped and invalidated on writes to keep consistency tight.
+- **Async workflows**: RabbitMQ smooths spikes and isolates failures; consumers can be scaled independently by queue.
+- **Operational hygiene**: Health checks, structured logs, and per-tenant migration management. Use metrics (latency, queue depth, DB connections) and alerts; apply rate limits and idempotency on payment/completion endpoints if exposing publicly.
+
 ### Features
 - **Authentication (JWT)**: Register and login; protected routes with role-based access (ADMIN, CUSTOMER).
 - **Multi-tenancy (database-per-tenant)**: ADMIN users with `tenantCode` get isolated databases. Customers operate across tenants where applicable.
