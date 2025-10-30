@@ -1,99 +1,193 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Comprehensive Order API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS, Prisma, PostgreSQL multi-tenant demo with JWT auth, product catalog, and order processing powered by Redis caching and RabbitMQ-based asynchronous workflows.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+### Features
+- **Authentication (JWT)**: Register and login; protected routes with role-based access (ADMIN, CUSTOMER).
+- **Multi-tenancy (database-per-tenant)**: ADMIN users with `tenantCode` get isolated databases. Customers operate across tenants where applicable.
+- **Product management**: CRUD with pagination, per-tenant routing via `:tenantCode` path and a request-scoped Prisma client.
+- **Order lifecycle**: Create orders, add items, checkout/payment, and completion. Cross-tenant order listing for a user.
+- **Asynchronous workers (RabbitMQ)**:
+  - Database creation for new tenants.
+  - Order processing queue to set WAITING_FOR_PAYMENT and generate payment link (stub).
+  - Order completion queue to finalize orders and send confirmations (stub).
+- **Request-scoped multi-tenant Prisma**: Dynamic database switching via `TenantContextService` and `PrismaService` proxies.
+- **Redis cache**: Request/result caching with keys scoped by tenant/user and automatic invalidation via decorators/interceptor.
+- **Swagger docs**: Available at `/api/docs` with global `/api` prefix.
+- **Structured logging**: Global HTTP logging interceptor with safe redaction.
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Tech Stack
+- **Runtime/Framework**: NestJS 10, TypeScript
+- **ORM**: Prisma 5 (PostgreSQL)
+- **Auth**: Passport JWT via `@nestjs/jwt`
+- **Queue**: RabbitMQ (`amqplib`)
+- **Cache**: Redis (`ioredis`)
+- **Docs**: Swagger (`@nestjs/swagger`)
 
-## Project setup
+---
 
+## Quick start
+1) Install dependencies:
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
-
+2) Set environment variables (example `.env`):
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+PORT=3000
+# Primary Postgres (default tenant DB)
+DATABASE_URL=postgresql://user:pass@localhost:5432/store_master?schema=public
+# Tenant DBs will be created with this prefix
+DATABASE_PREFIX=store_
+# JWT
+JWT_SECRET=change-me
+# Redis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+# RabbitMQ
+RABBITMQ_URL=amqp://127.0.0.1:5672
 ```
 
-## Run tests
-
+3) Run migrations and seed default DB (users live in default DB):
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npx prisma migrate deploy
+npm run seed
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+4) Start API server and consumers:
 ```bash
-$ npm install -g mau
-$ mau deploy
+npm run start:dev         # API (http://localhost:3000/api)
+npm run start             # API prod (compiled)
+npm run start:consumer    # RabbitMQ consumers (database/order workers)
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+5) Open Swagger:
+- `http://localhost:3000/api/docs`
 
-## Resources
+---
 
-Check out a few resources that may come in handy when working with NestJS:
+## API sitemap (high-level)
+Global prefix: `/api`
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+- **Auth** (`/api/auth`)
+  - `POST /register` — create CUSTOMER user
+  - `POST /login` — JWT login; returns `access_token`
+  - `GET  /profile` — current user (JWT required)
 
-## Support
+- **Users** (`/api/users`) [ADMIN only]
+  - `POST /` — create user (ADMIN requires unique `tenantCode`) → triggers async tenant DB creation
+  - `GET  /` — list users
+  - `GET  /:id` — get user
+  - `PATCH /:id` — update user
+  - `DELETE /:id` — delete user
+  - `GET  /:id/database-status` — tenant DB readiness flag
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- **Products** (`/api/:tenantCode/products`) [JWT]
+  - `POST /` — create product [ADMIN]
+  - `GET  /` — list products (pagination: `page`, `per_page`) [ADMIN, CUSTOMER]
+  - `GET  /:id` — get product [ADMIN, CUSTOMER]
+  - `PATCH /:id` — update product [ADMIN]
+  - `DELETE /:id` — delete product [ADMIN]
 
-## Stay in touch
+- **Orders** (`/api/orders`) [JWT]
+  - `POST /:tenantCode/create` — create order and enqueue processing [ADMIN, CUSTOMER]
+  - `GET  /` — list current user’s orders across all ready tenants (pagination)
+  - `GET  /:tenantCode/:id` — get single order for current user
+  - `POST /:tenantCode/:id/payment-received` — mark paid; updates stock; sets PAID
+  - `POST /:tenantCode/:id/complete` — enqueue completion with `transaction_id`
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Notes:
+- All protected routes require `Authorization: Bearer <token>` header.
+- `:tenantCode` in path explicitly selects a tenant database for that request.
+
+---
+
+## Database design
+- Default database (from `prisma/schema.prisma`):
+  - `users` — holds platform users with optional `tenantCode` (unique) and `isDatabaseCreated` flag; ADMIN users represent tenants.
+  - Also includes `products`, `orders`, and `order_items` models for default DB usage.
+- Tenant databases (from `prisma/tenant-schema.prisma` + `prisma/tenant_migrations/*`):
+  - Each tenant gets its own DB named `${DATABASE_PREFIX}${tenantCode}`
+  - Schema includes `products`, `orders`, `order_items` (no `users` table; users remain in default DB)
+
+### Multi-tenant routing
+- `TenantInterceptor` sets tenant context from `:tenantCode` path (or query), or from ADMIN user’s `tenantCode`.
+- `PrismaService` is request-scoped; it delegates to `DatabaseManagerService` to select the correct Prisma client/connection based on the current tenant.
+- `DatabaseCreationConsumer` creates a new tenant DB on-demand and applies SQL migrations from `prisma/tenant_migrations/*`.
+
+---
+
+## Redis cache
+- `CacheService` builds keys as `<tenant>:<Controller>:<method>[:args|userId]`.
+- `@Cacheable({ ttl, includeArgs, includeUserId })` to cache responses.
+- `@InvalidateCache([...])` to invalidate after writes; can target specific methods, user keys, or entire controller pattern; supports default-tenant overrides.
+- `CacheInterceptor` implements the policy and wiring.
+
+Environment:
+- `REDIS_HOST`, `REDIS_PORT`, optional `REDIS_PASSWORD`.
+
+---
+
+## RabbitMQ async workflows
+Queues:
+- `database-creation` — create and migrate tenant DB, then mark `isDatabaseCreated=true` for the ADMIN user.
+- `order-processing` — when an order is created, set `WAITING_FOR_PAYMENT`, assign `paymentId` and emit stubs for payment link/email.
+- `order-completed` — when completion is requested, set `COMPLETE` with `transactionId` and emit stub email.
+
+Services/consumers:
+- `RabbitMQService` — connection/retry, queue asserts, publish/consume helpers.
+- `DatabaseCreationConsumer`, `OrderProcessingConsumer`, `OrderCompletedConsumer` — background workers started by `npm run start:consumer`.
+
+Environment:
+- `RABBITMQ_URL=amqp://127.0.0.1:5672`
+
+---
+
+## Auth
+- JWT payload includes `sub`, `email`, `role`, and optional `tenantCode`.
+- `JwtAuthGuard`, `RolesGuard`, and `@Roles()` protect routes.
+
+Environment:
+- `JWT_SECRET` and token expiry configured in `AuthModule`.
+
+---
+
+## Development notes
+- Global prefix: `/api`; Swagger at `/api/docs`.
+- Global validation pipe with whitelist/transform.
+- Global logging interceptor for requests and errors.
+- Scripts:
+```json
+{
+  "build": "nest build",
+  "start": "nest start",
+  "start:dev": "nest start --watch",
+  "start:prod": "node dist/main",
+  "start:consumer": "ts-node src/consumer/main.ts",
+  "start:consumer:prod": "node dist/consumer/main.js",
+  "seed": "ts-node prisma/seed.ts"
+}
+```
+
+---
+
+## Testing
+- Unit/E2E setup via Jest. Run:
+```bash
+npm run test
+npm run test:e2e
+```
+
+---
+
+## Health and troubleshooting
+- Redis: `CacheService.isHealthy()` pings Redis; check logs for connection issues.
+- RabbitMQ: service retries connection; ensure broker is reachable and queues exist.
+- DB URLs: logs mask secrets but show which database URL is in use per request.
+
+---
 
 ## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED
