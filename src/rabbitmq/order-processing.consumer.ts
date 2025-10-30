@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { RabbitMQService } from './rabbitmq.service';
 import { DatabaseManagerService } from '../prisma/database-manager.service';
 import { OrderStatus } from '@prisma/client';
@@ -37,7 +38,7 @@ export class OrderProcessingConsumer implements OnModuleInit {
     // 1) Update status to WAITING_FOR_PAYMENT
     await tenantPrisma.order.update({
       where: { id: orderId },
-      data: { status: OrderStatus.WAITING_FOR_PAYMENT },
+      data: { status: OrderStatus.WAITING_FOR_PAYMENT, paymentId: this.generatePaymentId() },
     });
 
     // 2) Create payment link (stub)
@@ -55,6 +56,11 @@ export class OrderProcessingConsumer implements OnModuleInit {
   private async sendOrderPendingEmail(orderId: string, tenantCode: string): Promise<void> {
     // TODO: integrate with email service
     this.logger.log(`Stub sendOrderPendingEmail for order ${orderId} (tenant ${tenantCode})`);
+  }
+
+  private generatePaymentId(): string {
+    // Return a simple UUID using crypto.randomUUID (Node.js 16.17+ and most browsers)
+    return randomUUID();
   }
 }
 
