@@ -10,7 +10,7 @@ import {
   UseInterceptors,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiParam, ApiQuery, ApiBearerAuth  } from '@nestjs/swagger';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -37,6 +37,7 @@ export class ProductController {
   @Post()
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponseWrapper({ message: 'Product created successfully' })
+  @ApiBearerAuth()
   @Roles(Role.ADMIN)
   @InvalidateCache(['findAll'])
   async create(@Body() createProductDto: CreateProductDto) {
@@ -47,6 +48,7 @@ export class ProductController {
   @ApiOperation({ summary: 'Get all products' })
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Products retrieved successfully' })
+  @ApiBearerAuth()
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @Cacheable({ ttl: 300 })
   @RateLimit({ windowMs: 60_000, max: 30 })
@@ -66,6 +68,7 @@ export class ProductController {
   @ApiOperation({ summary: 'Get a product by ID' })
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product retrieved successfully' })
+  @ApiBearerAuth()
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @Cacheable({ ttl: 300 })
   async findOne(@Param('id') id: string, @TenantCode() tenantCode: string) {
@@ -76,6 +79,7 @@ export class ProductController {
   @ApiOperation({ summary: 'Update a product by ID' })
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product updated successfully' })
+  @ApiBearerAuth()
   @Roles(Role.ADMIN)
   @InvalidateCache(['findAll', 'findOne'])
   async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto, @TenantCode() tenantCode: string) {
@@ -86,6 +90,7 @@ export class ProductController {
   @ApiOperation({ summary: 'Delete a product by ID' })
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product deleted successfully' })
+  @ApiBearerAuth()
   @Roles(Role.ADMIN)
   @InvalidateCache(['findAll', 'findOne'])
   async remove(@Param('id') id: string, @TenantCode() tenantCode: string) {

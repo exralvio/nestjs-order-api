@@ -9,7 +9,7 @@ import {
   Query,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiQuery, ApiParam, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { OrderService } from './order.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -22,31 +22,49 @@ import { TenantCode } from '../common/decorators/tenant-code.decorator';
 import { Cacheable, InvalidateCache } from '../common/decorators/cache.decorator';
 import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
 import { RateLimit } from '../common/decorators/rate-limit.decorator';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { TenantContextService } from '../prisma/tenant-context.service';
 
 @ApiTags('orders')
+@ApiBearerAuth()
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor, CacheInterceptor)
 @RateLimit({ windowMs: 60_000, max: 30 })
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   @Post(':tenantCode/create')
   @ApiOperation({ summary: 'Create a new order' })
   @ApiResponseWrapper({ message: 'Order created successfully' })
-  @Roles(Role.ADMIN, Role.CUSTOMER)
+  @ApiBearerAuth()
+  @Roles(Role.CUSTOMER)
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
+  @ApiBody({
+    description: 'Create a new order',
+    type: CreateOrderDto,
+    examples: {
+      sample: {
+        summary: 'Order items',
+        value: {
+          items: [
+            {
+              product_id: 'prod_123',
+              qty: 2,
+            },
+          ],
+        },
+      },
+    },
+  })
   @InvalidateCache([{ method: 'findAll', includeUserId: true, isDefaultTenant: true }])
   async create(
     @GetUser() user: any,
     @TenantCode() tenantCode: string,
-    @Body()
-    body: {
-      items: Array<{
-        product_id: string;
-        qty: number;
-      }>;
-    },
+    @Body() body: CreateOrderDto,
   ) {
     if (!body?.items || !Array.isArray(body.items) || body.items.length === 0) {
       throw new BadRequestException('items is required and must be a non-empty array');
@@ -72,12 +90,17 @@ export class OrderController {
 
   @Get()
   @ApiOperation({ summary: 'Get user orders' })
+  @ApiBearerAuth()
   @ApiResponseWrapper({ message: 'Orders retrieved successfully' })
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'per_page', required: false, type: Number, description: 'Items per page (default: 10)' })
   @Cacheable({ ttl: 300, includeUserId: true })
   findAll(@GetUser() user: any, @Param() _params: any, @Query('page') page?: string, @Query('per_page') perPage?: string) {
+    // If ADMIN, force tenant selection to the admin's tenantCode
+    if (user?.role === Role.ADMIN && user?.tenantCode) {
+      this.tenantContext.setTenantCode(user.tenantCode);
+    }
     // All users see only their own orders
     const pageNum = Math.max(1, parseInt(page ?? '1', 10) || 1);
     const perPageNum = Math.max(1, Math.min(100, parseInt(perPage ?? '10', 10) || 10));
@@ -87,7 +110,8 @@ export class OrderController {
   @Get(':tenantCode/:id')
   @ApiOperation({ summary: 'Get an order by ID' })
   @ApiResponseWrapper({ message: 'Order retrieved successfully' })
-  @Roles(Role.ADMIN, Role.CUSTOMER)
+  @ApiBearerAuth()
+  @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   findOne(@Param('id') id: string, @GetUser() user: any) {
     // All users can only see their own orders
@@ -97,7 +121,8 @@ export class OrderController {
   @Post(':tenantCode/:id/payment-received')
   @ApiOperation({ summary: 'Mark payment as received (manual trigger)' })
   @ApiResponseWrapper({ message: 'Payment marked as received' })
-  @Roles(Role.ADMIN, Role.CUSTOMER)
+  @ApiBearerAuth()
+  @Roles(Role.CUSTOMER)
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   paymentReceived(@Param('id') id: string, @GetUser() user: any, @TenantCode() tenantCode: string) {
     return this.orderService.paymentReceived(id, user.id, tenantCode);
@@ -106,7 +131,8 @@ export class OrderController {
   @Post(':tenantCode/:id/complete')
   @ApiOperation({ summary: 'Mark order as completed (async via queue)' })
   @ApiResponseWrapper({ message: 'Order completion queued' })
-  @Roles(Role.ADMIN, Role.CUSTOMER)
+  @ApiBearerAuth()
+  @Roles(Role.CUSTOMER)
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   @InvalidateCache([{ method: 'findAll', includeUserId: true, isDefaultTenant: true }])
   async completeOrder(
