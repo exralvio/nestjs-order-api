@@ -20,12 +20,16 @@ export class TenantInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    // Priority 1: Set tenant code from query parameter (for explicit tenant access)
-    const queryTenantCode = request.query?.tenantCode;
-    if (queryTenantCode) {
-      this.tenantContext.setTenantCode(queryTenantCode);
+    // Priority 1: Set tenant code from path parameter (for explicit tenant access)
+    const pathTenantCode = request.params?.tenantCode;
+    if (pathTenantCode) {
+      this.tenantContext.setTenantCode(pathTenantCode);
     }
-    // Priority 2: Set tenant code from user if user is ADMIN (fallback)
+    // Priority 2: Set tenant code from query parameter (backward compatibility)
+    else if (request.query?.tenantCode) {
+      this.tenantContext.setTenantCode(request.query.tenantCode);
+    }
+    // Priority 3: Set tenant code from user if user is ADMIN (fallback)
     else if (user && user.role === Role.ADMIN && user.tenantCode) {
       this.tenantContext.setTenantCode(user.tenantCode);
     }

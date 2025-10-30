@@ -8,7 +8,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { OrderService } from './order.service';
 import { AddItemDto } from './dto/add-item.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -28,11 +28,11 @@ import { TenantCode } from '../common/decorators/tenant-code.decorator';
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
-  @Post()
+  @Post(':tenantCode/create')
   @ApiOperation({ summary: 'Create a new order' })
   @ApiResponseWrapper({ message: 'Order created successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   create(@GetUser() user: any, @TenantCode() tenantCode: string) {
     return this.orderService.createOrder(user.id, tenantCode);
   }
@@ -40,27 +40,27 @@ export class OrderController {
   @Get()
   @ApiOperation({ summary: 'Get user orders' })
   @ApiResponseWrapper({ message: 'Orders retrieved successfully' })
-  @Roles(Role.ADMIN, Role.CUSTOMER)
+  @Roles(Role.CUSTOMER)
   findAll(@GetUser() user: any) {
     // All users see only their own orders
     return this.orderService.findAll(user.id);
   }
 
-  @Get(':id')
+  @Get(':tenantCode/:id')
   @ApiOperation({ summary: 'Get an order by ID' })
   @ApiResponseWrapper({ message: 'Order retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   findOne(@Param('id') id: string, @GetUser() user: any, @TenantCode() tenantCode: string) {
     // All users can only see their own orders
     return this.orderService.findOne(id, user.id, tenantCode);
   }
 
-  @Post(':id/items')
+  @Post(':tenantCode/:id/items')
   @ApiOperation({ summary: 'Add product to order' })
   @ApiResponseWrapper({ message: 'Item added to order successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   addItem(
     @Param('id') id: string,
     @Body() addItemDto: AddItemDto,
@@ -70,29 +70,29 @@ export class OrderController {
     return this.orderService.addItemToOrder(id, user.id, addItemDto, tenantCode);
   }
 
-  @Post(':id/checkout')
+  @Post(':tenantCode/:id/checkout')
   @ApiOperation({ summary: 'Checkout order (change status to waiting for payment)' })
   @ApiResponseWrapper({ message: 'Order checkout successful' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   checkout(@Param('id') id: string, @GetUser() user: any, @TenantCode() tenantCode: string) {
     return this.orderService.checkoutOrder(id, user.id, tenantCode);
   }
 
-  @Post(':id/payment-received')
+  @Post(':tenantCode/:id/payment-received')
   @ApiOperation({ summary: 'Mark payment as received (manual trigger)' })
   @ApiResponseWrapper({ message: 'Payment marked as received' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   paymentReceived(@Param('id') id: string, @GetUser() user: any, @TenantCode() tenantCode: string) {
     return this.orderService.paymentReceived(id, user.id, tenantCode);
   }
 
-  @Patch(':id/complete')
+  @Patch(':tenantCode/:id/complete')
   @ApiOperation({ summary: 'Change order status to complete' })
   @ApiResponseWrapper({ message: 'Order completed successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
   complete(@Param('id') id: string, @GetUser() user: any, @TenantCode() tenantCode: string) {
     return this.orderService.completeOrder(id, user.id, tenantCode);
   }

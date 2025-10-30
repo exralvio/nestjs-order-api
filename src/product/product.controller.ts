@@ -9,7 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -24,7 +24,7 @@ import { TenantCode } from '../common/decorators/tenant-code.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('products')
-@Controller('products')
+@Controller(':tenantCode/products')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor, CacheInterceptor)
 export class ProductController {
@@ -41,7 +41,7 @@ export class ProductController {
 
   @Get()
   @ApiOperation({ summary: 'Get all products' })
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Products retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @Cacheable({ ttl: 300 })
@@ -51,7 +51,7 @@ export class ProductController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a product by ID' })
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @Cacheable({ ttl: 300 })
@@ -61,7 +61,7 @@ export class ProductController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a product by ID' })
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product updated successfully' })
   @Roles(Role.ADMIN)
   @InvalidateCache(['findAll', 'findOne'])
@@ -71,7 +71,7 @@ export class ProductController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a product by ID' })
-  @ApiQuery({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
+  @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to filter products' })
   @ApiResponseWrapper({ message: 'Product deleted successfully' })
   @Roles(Role.ADMIN)
   @InvalidateCache(['findAll', 'findOne'])
@@ -79,4 +79,3 @@ export class ProductController {
     return this.productService.remove(id, tenantCode);
   }
 }
-

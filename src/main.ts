@@ -8,6 +8,9 @@ async function bootstrap() {
   try {
     const app = await NestFactory.create(AppModule);
     
+    // Global route prefix
+    app.setGlobalPrefix('api');
+    
     // Enable validation pipe
     app.useGlobalPipes(
       new ValidationPipe({
@@ -29,12 +32,13 @@ async function bootstrap() {
       .build();
     
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document); // Swagger will be available at /api
+    // Serve Swagger under /api/docs to avoid conflicting with global prefix
+    SwaggerModule.setup('api/docs', app, document);
 
     const port = process.env.PORT ?? 3000;
     await app.listen(port);
-    console.log(`Application is running on: http://localhost:${port}`);
-    console.log(`Swagger documentation: http://localhost:${port}/api`);
+    console.log(`Application is running on: http://localhost:${port}/api`);
+    console.log(`Swagger documentation: http://localhost:${port}/api/docs`);
   } catch (error) {
     console.error('Error starting the application:', error);
     process.exit(1);
