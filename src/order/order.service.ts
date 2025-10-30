@@ -383,7 +383,7 @@ export class OrderService {
     return allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  async findOne(id: string, userId: string, tenantCode: string) {
+  async findOne(id: string, userId: string) {
     const order = await this.prisma.order.findFirst({
       where: { 
         id,

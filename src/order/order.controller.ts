@@ -51,9 +51,9 @@ export class OrderController {
   @ApiResponseWrapper({ message: 'Order retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @ApiParam({ name: 'tenantCode', required: true, description: 'Tenant code to route to destination database' })
-  findOne(@Param('id') id: string, @GetUser() user: any, @TenantCode() tenantCode: string) {
+  findOne(@Param('id') id: string, @GetUser() user: any) {
     // All users can only see their own orders
-    return this.orderService.findOne(id, user.id, tenantCode);
+    return this.orderService.findOne(id, user.id);
   }
 
   @Post(':tenantCode/:id/items')
