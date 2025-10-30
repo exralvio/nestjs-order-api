@@ -53,15 +53,28 @@ RABBITMQ_URL=amqp://127.0.0.1:5672
 3) Run migrations and seed default DB (users live in default DB):
 ```bash
 npx prisma migrate deploy
-npm run seed
+npx prisma db seed
 ```
 
-4) Start API server and consumers:
-```bash
-npm run start:dev         # API (http://localhost:3000/api)
-npm run start             # API prod (compiled)
-npm run start:consumer    # RabbitMQ consumers (database/order workers)
-```
+4) Start the application:
+   
+   **Terminal 1 - Start the API server:**
+   ```bash
+   npm run start:dev
+   ```
+   
+   **Terminal 2 - Start the RabbitMQ consumers (in a separate terminal):**
+   ```bash
+   npm run start:consumer
+   ```
+   
+   The API will be available at `http://localhost:3000/api` and the consumers will process background jobs (database creation, order processing, and order completion).
+
+   **Alternative production commands:**
+   ```bash
+   npm run start          # API prod (compiled)
+   npm run start:consumer:prod  # Consumers in prod mode
+   ```
 
 5) Open Swagger:
 - `http://localhost:3000/api/docs`
