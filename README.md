@@ -161,6 +161,19 @@ Environment:
 
 ---
 
+## Rate limiting
+- **Interceptor-based**: A lightweight in-memory rate limiter enforced by `RateLimitInterceptor` with optional `@RateLimit({...})` decorator overrides per controller/route.
+- **Defaults**: 60 requests per 60 seconds, keyed by user when authenticated (falls back to IP). Keys are tenant-scoped and method-scoped: `<tenant>:<Controller>.<method>:<principal>`.
+- **Headers**: Adds `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` to responses.
+- **Enable**:
+  - Per-controller: include the interceptor in `@UseInterceptors(...)`.
+  - Or register globally if you want it for all routes.
+
+Notes:
+- In this demo, counters are stored in-process (per instance). For production, prefer a distributed store (e.g., Redis) for consistent limits across replicas.
+
+---
+
 ## RabbitMQ async workflows
 Queues:
 - `database-creation` — create and migrate tenant DB, then mark `isDatabaseCreated=true` for the ADMIN user.

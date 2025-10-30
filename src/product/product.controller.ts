@@ -23,11 +23,14 @@ import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
 import { Cacheable, InvalidateCache } from '../common/decorators/cache.decorator';
 import { TenantCode } from '../common/decorators/tenant-code.decorator';
 import { Role } from '@prisma/client';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
+import { RateLimitInterceptor } from '../common/interceptors/rate-limit.interceptor';
 
 @ApiTags('products')
 @Controller(':tenantCode/products')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@UseInterceptors(TenantInterceptor, CacheInterceptor)
+@UseInterceptors(TenantInterceptor, CacheInterceptor, RateLimitInterceptor)
+@RateLimit({ windowMs: 60_000, max: 60 })
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
@@ -46,6 +49,7 @@ export class ProductController {
   @ApiResponseWrapper({ message: 'Products retrieved successfully' })
   @Roles(Role.ADMIN, Role.CUSTOMER)
   @Cacheable({ ttl: 300, includeUserId: true })
+  @RateLimit({ windowMs: 60_000, max: 30 })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'per_page', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
   async findAll(

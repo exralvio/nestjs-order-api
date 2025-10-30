@@ -4,13 +4,12 @@ import {
   Post,
   Body,
   Param,
-  Patch,
   UseGuards,
   UseInterceptors,
   Query,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { OrderService } from './order.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -22,12 +21,13 @@ import { Role } from '@prisma/client';
 import { TenantCode } from '../common/decorators/tenant-code.decorator';
 import { Cacheable, InvalidateCache } from 'src/common/decorators/cache.decorator';
 import { CacheInterceptor } from 'src/common/interceptors/cache.interceptor';
+import { RateLimit } from 'src/common/decorators/rate-limit.decorator';
 
 @ApiTags('orders')
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor, CacheInterceptor)
-@ApiBearerAuth()
+@RateLimit({ windowMs: 60_000, max: 30 })
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
